@@ -1,0 +1,62 @@
+[en] -- RedSMURF
+TREE_CHAT_TAG                               = ^4[XEN TREE]^1
+TREE_CHAT_LIMIT                             = You've reached the maximum number of Trees ^4%d
+TREE_CHAT_NO_TREE                           = There are no Trees available
+TREE_CHAT_CREATE_NEW                        = ^3%s ^1created
+TREE_CHAT_REMOVE_CURRENT                    = ^3%s ^1removed
+TREE_CHAT_REMOVE_ALL                        = All Trees removed
+TREE_CHAT_SAVE                              = Tree data saved in ^4%s
+TREE_CHAT_SHOW_CURRENT                      = ^3%s ^1is %L
+TREE_CHAT_SHOW_ALL_SHOWN                    = All Trees are now Shown
+TREE_CHAT_SHOW_ALL_HIDDEN                   = All Trees are now Hidden
+TREE_CHAT_STATUS_CURRENT                    = ^3%s ^1is %L
+TREE_CHAT_STATUS_ALL_ENABLED                = All Trees are now Enabled
+TREE_CHAT_STATUS_ALL_DISABLED               = All Trees are now Disabled
+
+TREE_CHAT_SHOWN                             = Shown
+TREE_CHAT_HIDDEN                            = Hidden
+TREE_CHAT_ENABLED                           = Enabled
+TREE_CHAT_DISABLED                          = Disabled
+
+TREE_NAV_NEXT                               = Next
+TREE_NAV_BACK                               = Back
+TREE_ON                                     = \y[ON]
+TREE_OFF                                    = \r[OFF]
+TREE_SHOWN                                  = \y[SHOWN]
+TREE_HIDDEN                                 = \r[HIDDEN]
+TREE_ENABLED                                = \y[ENABLED]
+TREE_DISABLED                               = \r[DISABLED]
+TREE_ROTATE_NORMAL                          = \d[NORMAL]
+TREE_ROTATE_LARGE                           = \d[LARGE]
+
+TREE_MENU_TITLE                             = \dXen Tree - Version \y%s
+TREE_MENU_TITLE_PAGE                        = \yPage:\r
+TREE_ROOT_CREATE                            = Create Tree
+TREE_ROOT_EDIT                              = Edit Tree
+TREE_ROOT_REMOVE                            = Remove Tree
+TREE_ROOT_SAVE                              = Save Data
+TREE_ROOT_SHOW                              = Visibility Settings
+TREE_ROOT_STATUS                            = Status Settings
+TREE_ROOT_NOCLIP                            = Status Noclip %L
+TREE_ROOT_GODMODE                           = Status Godmode %L
+TREE_ROOT_ROTATE                            = Adjust Rotation
+
+TREE_EDIT_SHOW                              = Edit Visibility
+TREE_EDIT_STATUS                            = Edit Status
+
+TREE_REMOVE_CURRENT                         = Remove Tree >> \y%s
+TREE_REMOVE_ALL                             = Remove all Trees
+
+TREE_SHOW_CURRENT                           = Show Tree >> %s%s %L
+TREE_SHOW_ALL_SHOW                          = Show all Trees
+TREE_SHOW_ALL_HIDE                          = Hide all Trees
+
+TREE_STATUS_CURRENT                         = Enable Tree >> %s%s %L
+TREE_STATUS_ALL_ENABLE                      = Enable all Trees
+TREE_STATUS_ALL_DISABLE                     = Disable all Trees
+
+TREE_ROTATE_UP                              = Turn Up
+TREE_ROTATE_DOWN                            = Turn Down
+TREE_ROTATE_GROUND                          = Set on ground >> %L
+TREE_ROTATE_SIZE                            = Rotate Size >> %L
+TREE_ROTATE_PLACE                           = Place Tree
