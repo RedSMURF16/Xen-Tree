@@ -135,6 +135,7 @@ enum _:MAIN_SETTINGS
     Float:SETTING_DEFAULT_ACTIVE_DURATION[2],
     Float:SETTING_DEFAULT_ACTIVE_COOLDOWN[2],
     Float:SETTING_DEFAULT_DAMAGE[2],
+    SETTING_DEFAULT_DAMAGETYPE,
     Float:SETTING_DEFAULT_PUSH[2],
 
     SETTING_MODEL_NORMAL[MAX_RESOURCE_PATH_LENGTH],
@@ -190,6 +191,7 @@ enum _:TREE
     Float:TREE_ACTIVE_DURATION[2],
     Float:TREE_ACTIVE_COOLDOWN[2],
     Float:TREE_DAMAGE[2],
+    TREE_DAMAGETYPE,
     Float:TREE_PUSH[2],
 
     Float:TREE_NEXT_ENABLE,
@@ -307,6 +309,7 @@ new g_szMenuHandler[][MAX_VALUE_LENGTH] =
 }
 
 new g_szCN[] = "xen_tree"
+new g_szTreeAttackTarget[][] = {"player", "info_target", "xen_tree"}
 
 new Array:g_aTree,
     Array:g_aTreeConfig,
@@ -344,6 +347,12 @@ public plugin_init()
 
     treeInit()
     g_iMaxPlayers = get_maxplayers()
+    register_clcmd("say /check",  "cmdCheckk", ADMIN_ACCESS, "-- Opens the Xen Tree menu.")
+}
+
+public cmdCheckk(id)
+{
+    client_print(1, print_chat, "Take Damage: %d", pev(id, pev_takedamage))
 }
 
 public plugin_precache()
@@ -483,6 +492,7 @@ ReadFile()
                         eTree[TREE_ACTIVE_COOLDOWN][1]      = g_eSettings[SETTING_DEFAULT_ACTIVE_COOLDOWN][1]
                         eTree[TREE_DAMAGE][0]               = g_eSettings[SETTING_DEFAULT_DAMAGE][0]
                         eTree[TREE_DAMAGE][1]               = g_eSettings[SETTING_DEFAULT_DAMAGE][1]
+                        eTree[TREE_DAMAGETYPE]              = g_eSettings[SETTING_DEFAULT_DAMAGETYPE]
                         eTree[TREE_PUSH][0]                 = g_eSettings[SETTING_DEFAULT_PUSH][0]
                         eTree[TREE_PUSH][1]                 = g_eSettings[SETTING_DEFAULT_PUSH][1]
                         eTree[TREE_SOUND_SWING]             = ArrayClone(g_eSettings[SETTING_DEFAULT_SOUND_SWING])
@@ -536,6 +546,8 @@ ReadFile()
                             parseSetting(DTYPE_FLOAT, szValue, charsmax(szValue), g_eSettings[SETTING_DEFAULT_ACTIVE_COOLDOWN], charsmax(g_eSettings[SETTING_DEFAULT_ACTIVE_COOLDOWN]))
                         else if ( equali(szKey, "SETTING_DEFAULT_DAMAGE") )
                             parseSetting(DTYPE_FLOAT, szValue, charsmax(szValue), g_eSettings[SETTING_DEFAULT_DAMAGE], charsmax(g_eSettings[SETTING_DEFAULT_DAMAGE]))
+                        else if ( equali(szKey, "SETTING_DEFAULT_DAMAGETYPE") )
+                            parseSetting(DTYPE_INT, szValue, charsmax(szValue), g_eSettings[SETTING_DEFAULT_DAMAGETYPE], charsmax(g_eSettings[SETTING_DEFAULT_DAMAGETYPE]))
                         else if ( equali(szKey, "SETTING_DEFAULT_PUSH") )
                             parseSetting(DTYPE_FLOAT, szValue, charsmax(szValue), g_eSettings[SETTING_DEFAULT_PUSH], charsmax(g_eSettings[SETTING_DEFAULT_PUSH]))
                         else if ( equali(szKey, "SETTING_MODEL_NORMAL") )
@@ -621,6 +633,8 @@ ReadFile()
                             parseSetting(DTYPE_FLOAT, szValue, charsmax(szValue), eTree[TREE_ACTIVE_COOLDOWN], charsmax(eTree[TREE_ACTIVE_COOLDOWN]))
                         else if ( equali(szKey, "TREE_DAMAGE") )
                             parseSetting(DTYPE_FLOAT, szValue, charsmax(szValue), eTree[TREE_DAMAGE], charsmax(eTree[TREE_DAMAGE]))
+                        else if ( equali(szKey, "TREE_DAMAGETYPE") )
+                            parseSetting(DTYPE_INT, szValue, charsmax(szValue), eTree[TREE_DAMAGETYPE], charsmax(eTree[TREE_DAMAGETYPE]))
                         else if ( equali(szKey, "TREE_PUSH") )
                             parseSetting(DTYPE_FLOAT, szValue, charsmax(szValue), eTree[TREE_PUSH], charsmax(eTree[TREE_PUSH]))
                     }
@@ -1488,6 +1502,7 @@ stock treeCreateTrigger(eTree[TREE])
     engfunc(EngFunc_SetOrigin, iEnt, eTree[TREE_TRIGGER_ORIGIN])
     set_pev(iEnt, pev_solid, SOLID_TRIGGER)
     set_pev(iEnt, pev_movetype, MOVETYPE_NONE)
+
     engfunc(EngFunc_SetSize, iEnt, eTree[TREE_TRIGGER_MINS], eTree[TREE_TRIGGER_MAXS])
     xs_vec_add(eTree[TREE_TRIGGER_MINS], eTree[TREE_TRIGGER_ORIGIN], eTree[TREE_TRIGGER_MINS])
     xs_vec_add(eTree[TREE_TRIGGER_MAXS], eTree[TREE_TRIGGER_ORIGIN], eTree[TREE_TRIGGER_MAXS])
@@ -1899,28 +1914,39 @@ stock treeSwing(eTree[TREE])
 
 stock treeAttack(eTree[TREE])
 {
-    new szSound[MAX_RESOURCE_PATH_LENGTH], Float:fVec1[3], Float:fVec2[3]
-    for ( new id = 1; id <= g_iMaxPlayers; id ++ )
+    new szSound[MAX_RESOURCE_PATH_LENGTH], Float:fVec1[3], Float:fVec2[3], iEnt
+
+    for ( new i = 0; i < sizeof g_szTreeAttackTarget; i ++ )
     {
-        if ( !is_user_alive(id) )
-            continue
+        iEnt = 0
+        while ( (iEnt = engfunc(EngFunc_FindEntityByString, iEnt, "classname", g_szTreeAttackTarget[i])) )
+        {
+            if ( iEnt == eTree[TREE_ID]
+            || pev(iEnt, pev_takedamage) == DAMAGE_NO )
+                continue
 
-        pev(id, pev_origin, fVec1)
-        if ( fVec1[0] < eTree[TREE_TRIGGER_MINS][0] - TREE_TRIGGER_EPSILON || fVec1[0] > eTree[TREE_TRIGGER_MAXS][0] + TREE_TRIGGER_EPSILON
-        || fVec1[1] < eTree[TREE_TRIGGER_MINS][1] - TREE_TRIGGER_EPSILON || fVec1[1] > eTree[TREE_TRIGGER_MAXS][1] + TREE_TRIGGER_EPSILON
-        || fVec1[2] < eTree[TREE_TRIGGER_MINS][2] - TREE_TRIGGER_EPSILON || fVec1[2] > eTree[TREE_TRIGGER_MAXS][2] + TREE_TRIGGER_EPSILON )
-            continue
+            pev(iEnt, pev_origin, fVec1)
+            if ( fVec1[0] < eTree[TREE_TRIGGER_MINS][0] - TREE_TRIGGER_EPSILON || fVec1[0] > eTree[TREE_TRIGGER_MAXS][0] + TREE_TRIGGER_EPSILON
+            || fVec1[1] < eTree[TREE_TRIGGER_MINS][1] - TREE_TRIGGER_EPSILON || fVec1[1] > eTree[TREE_TRIGGER_MAXS][1] + TREE_TRIGGER_EPSILON
+            || fVec1[2] < eTree[TREE_TRIGGER_MINS][2] - TREE_TRIGGER_EPSILON || fVec1[2] > eTree[TREE_TRIGGER_MAXS][2] + TREE_TRIGGER_EPSILON )
+                continue
 
-        fVec2[0] = random_float(g_eSettings[SETTING_PUNCH_ANGLE][0], g_eSettings[SETTING_PUNCH_ANGLE][1])
-        set_pev(id, pev_punchangle, fVec2)
-        ArrayGetString(eTree[TREE_SOUND_ATTACK], random(ArraySize(eTree[TREE_SOUND_ATTACK])), szSound, charsmax(szSound))
-        engfunc(EngFunc_EmitSound, id, CHAN_ITEM, szSound, VOL_NORM, ATTN_NORM, 0, PITCH_NORM)
-        ExecuteHamB(Ham_TakeDamage, id, eTree[TREE_ID], eTree[TREE_ID], random_float(eTree[TREE_DAMAGE][0], eTree[TREE_DAMAGE][1]), DMG_ALWAYSGIB)
+            if ( equal(g_szTreeAttackTarget[i], "player") )
+            {
+                fVec2[0] = random_float(g_eSettings[SETTING_PUNCH_ANGLE][0], g_eSettings[SETTING_PUNCH_ANGLE][1])
+                set_pev(iEnt, pev_punchangle, fVec2)
 
-        pev(id, pev_velocity, fVec1)
-        xs_vec_mul_scalar(eTree[TREE_DIRECTION], random_float(eTree[TREE_PUSH][0], eTree[TREE_PUSH][1]), fVec2)
-        xs_vec_add(fVec1, fVec2, fVec1)
-        set_pev(id, pev_velocity, fVec1)
+                ArrayGetString(eTree[TREE_SOUND_ATTACK], random(ArraySize(eTree[TREE_SOUND_ATTACK])), szSound, charsmax(szSound))
+                engfunc(EngFunc_EmitSound, iEnt, CHAN_ITEM, szSound, VOL_NORM, ATTN_NORM, 0, PITCH_NORM)
+
+                pev(iEnt, pev_velocity, fVec1)
+                xs_vec_mul_scalar(eTree[TREE_DIRECTION], random_float(eTree[TREE_PUSH][0], eTree[TREE_PUSH][1]), fVec2)
+                xs_vec_add(fVec1, fVec2, fVec1)
+                set_pev(iEnt, pev_velocity, fVec1)
+            }
+
+            ExecuteHamB(Ham_TakeDamage, iEnt, eTree[TREE_ID], eTree[TREE_ID], random_float(eTree[TREE_DAMAGE][0], eTree[TREE_DAMAGE][1]), eTree[TREE_DAMAGETYPE])
+        }
     }
 }
 
