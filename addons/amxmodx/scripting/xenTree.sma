@@ -347,12 +347,6 @@ public plugin_init()
 
     treeInit()
     g_iMaxPlayers = get_maxplayers()
-    register_clcmd("say /check",  "cmdCheckk", ADMIN_ACCESS, "-- Opens the Xen Tree menu.")
-}
-
-public cmdCheckk(id)
-{
-    client_print(1, print_chat, "Take Damage: %d", pev(id, pev_takedamage))
 }
 
 public plugin_precache()
@@ -1885,22 +1879,6 @@ stock treeCheck(id)
     }
 }
 
-stock treeDLight(eTree[TREE])
-{
-    message_begin_f(MSG_PVS, SVC_TEMPENTITY, eTree[TREE_ORIGIN])
-    write_byte(TE_DLIGHT)
-    write_coord_f(eTree[TREE_ORIGIN][0])
-    write_coord_f(eTree[TREE_ORIGIN][1])
-    write_coord_f(eTree[TREE_ORIGIN][2])
-    write_byte(eTree[TREE_DLIGHT_RADIUS])
-    write_byte(eTree[TREE_DLIGHT_COLOR][0])
-    write_byte(eTree[TREE_DLIGHT_COLOR][1])
-    write_byte(eTree[TREE_DLIGHT_COLOR][2])
-    write_byte(g_eSettings[SETTING_DEFAULT_DLIGHT_LIFE])
-    write_byte(0)
-    message_end()
-}
-
 stock treeSwing(eTree[TREE])
 {
     new szSound[MAX_RESOURCE_PATH_LENGTH]
@@ -2177,6 +2155,9 @@ stock treeKill(eTree[TREE])
 {
     if ( pev_valid(eTree[TREE_ID]) )
         set_pev(eTree[TREE_ID], pev_flags, pev(eTree[TREE_ID], pev_flags) | FL_KILLME)
+
+    if ( pev_valid(eTree[TREE_TRIGGER]) )
+        set_pev(eTree[TREE_TRIGGER], pev_flags, pev(eTree[TREE_TRIGGER], pev_flags) | FL_KILLME)
 }
 
 stock parseSetting(iType, szValue[], iValueLen, any:aOutput[], iOutputLength)
