@@ -49,6 +49,9 @@
 
 #define MAX_ENT                     32
 #define ADMIN_ACCESS                ADMIN_RCON
+#define PDATA_NEXT_ATTACK           83
+#define XO_CBASEPLAYER              5
+#define XO_CBASEPLAYERWEAPON        4
 #define TREE_KEY                    934567
 #define TREE_ARRAY_ITEM             pev_iuser1
 #define TREE_OWNER                  pev_iuser1
@@ -63,7 +66,7 @@
 
 new const PLUGIN_VERSION[]          = "1.0"
 new const Float:DELAY_ON_CONNECT    = 1.0
-new const Float:DELAY_ON_LOAD       = 1.0
+new const Float:DELAY_ON_LOAD       = 2.0
 new const ERROR_FILE[]              = "XenTree_ERRORS.log"
 
 enum
@@ -77,7 +80,6 @@ enum
 {
     DTYPE_INT,
     DTYPE_FLOAT,
-    DTYPE_BOOL,
     DTYPE_FLAGS,
     DTYPE_ARRAY_STRING,
     DTYPE_ARRAY_SOUND,
@@ -88,17 +90,15 @@ enum
 
 enum
 {
-    FLAG_ACTIVE_DELAY       = (1 << 0),
-    FLAG_ACTIVE_DURATION    = (1 << 1),
-    FLAG_DAMAGE_TRIGGER     = (1 << 2),
+    FLAG_DAMAGE_TRIGGER     = (1 << 0),
 
-    FLAG_SHOW               = (1 << 3),
-    FLAG_GHOST              = (1 << 4),
-    FLAG_GROUND             = (1 << 5),
-    FLAG_ACTIVE             = (1 << 6),
-    FLAG_PENDING            = (1 << 7),
-    FLAG_SOUND_ATTACK       = (1 << 8),
-    FLAG_SOUND_SWING        = (1 << 9)
+    FLAG_SHOW               = (1 << 1),
+    FLAG_GHOST              = (1 << 2),
+    FLAG_GROUND             = (1 << 3),
+    FLAG_ACTIVE             = (1 << 4),
+    FLAG_PENDING            = (1 << 5),
+    FLAG_SOUND_ATTACK       = (1 << 6),
+    FLAG_SOUND_SWING        = (1 << 7)
 }
 
 enum
@@ -130,10 +130,6 @@ enum _:MAIN_SETTINGS
     SETTING_DEFAULT_FLAGS,
     SETTING_DEFAULT_TEAM,
     Float:SETTING_DEFAULT_FRAMERATE,
-    Float:SETTING_DEFAULT_SPAWN_CHANCE,
-    Float:SETTING_DEFAULT_ACTIVE_DELAY[2],
-    Float:SETTING_DEFAULT_ACTIVE_DURATION[2],
-    Float:SETTING_DEFAULT_ACTIVE_COOLDOWN[2],
     Float:SETTING_DEFAULT_DAMAGE[2],
     SETTING_DEFAULT_DAMAGETYPE,
     Float:SETTING_DEFAULT_PUSH[2],
@@ -186,16 +182,10 @@ enum _:TREE
     Array:TREE_SOUND_ATTACK,
     Array:TREE_SOUND_SWING,
 
-    Float:TREE_SPAWN_CHANCE,
-    Float:TREE_ACTIVE_DELAY[2],
-    Float:TREE_ACTIVE_DURATION[2],
-    Float:TREE_ACTIVE_COOLDOWN[2],
     Float:TREE_DAMAGE[2],
     TREE_DAMAGETYPE,
     Float:TREE_PUSH[2],
 
-    Float:TREE_NEXT_ENABLE,
-    Float:TREE_NEXT_DISABLE,
     Float:TREE_NEXT_IDLE,
     Float:TREE_NEXT_ATTACK
 }
@@ -316,7 +306,7 @@ new Array:g_aTree,
     g_eSettings[MAIN_SETTINGS],
     g_ePlayerData[MAX_PLAYERS + 1][PLAYER_DATA],
     bool:g_bFileWasRead, g_iActivePlayers,
-    g_iFwdUpdateClientData, HamHook:g_iFwdSpawn, HamHook:g_iFwdTouch, HamHook:g_iFwdTakeDamage, HamHook:g_iFwdBloodColor, HamHook:g_iFwdPreThink, HamHook:g_iFwdKilled,
+    HamHook:g_iFwdTouch, HamHook:g_iFwdTakeDamage, HamHook:g_iFwdBloodColor, HamHook:g_iFwdPreThink, HamHook:g_iFwdKilled,
     g_iTree, g_iTreeConfig,
     g_iMaxPlayers
 
@@ -334,8 +324,6 @@ public plugin_init()
     register_concmd("xt_reload",  "cmdReload", ADMIN_ACCESS, "-- Reloads the configuration file")
     register_dictionary("XenTree.txt")
 
-    g_iFwdUpdateClientData = register_forward(FM_UpdateClientData, "fwdUpdateClientData", 1)
-    g_iFwdSpawn = RegisterHam(Ham_Spawn, "info_target", "fwdSpawn", 1)
     g_iFwdTouch = RegisterHam(Ham_Touch, "info_target", "fwdTouch")
     g_iFwdTakeDamage = RegisterHam(Ham_TakeDamage, "info_target", "fwdTakeDamage")
     g_iFwdBloodColor = RegisterHam(Ham_BloodColor, "info_target", "fwdBloodColor")
@@ -391,29 +379,7 @@ public cmdReload(id, iLevel, iCmd)
 
 public eventRoundStart()
 {
-    if ( !g_iTree )
-        return PLUGIN_HANDLED
-
-    new eTree[TREE]
-    for ( new i = 0; i < g_iTree; i ++ )
-    {
-        ArrayGetArray(g_aTree, i, eTree)
-        if ( (eTree[TREE_FLAGS] & (FLAG_SHOW | FLAG_ACTIVE)) != (FLAG_SHOW | FLAG_ACTIVE) )
-            continue
-
-        treeReset(eTree)
-        if ( eTree[TREE_SPAWN_CHANCE] >= random_float(0.0, 1.0) )
-        {
-            eTree[TREE_FLAGS] |= (FLAG_SHOW | FLAG_ACTIVE)
-
-            treeSetDelay(eTree)
-            treeSetState(eTree)
-        }
-
-        ArraySetArray(g_aTree, i, eTree)
-    }
-
-    return PLUGIN_HANDLED
+    treeReset()
 }
 
 ReadFile()
@@ -477,13 +443,6 @@ ReadFile()
                         eTree[TREE_FLAGS]                   = g_eSettings[SETTING_DEFAULT_FLAGS]
                         eTree[TREE_TEAM]                    = g_eSettings[SETTING_DEFAULT_TEAM]
                         eTree[TREE_FRAMERATE]               = g_eSettings[SETTING_DEFAULT_FRAMERATE]
-                        eTree[TREE_SPAWN_CHANCE]            = g_eSettings[SETTING_DEFAULT_SPAWN_CHANCE]
-                        eTree[TREE_ACTIVE_DELAY][0]         = g_eSettings[SETTING_DEFAULT_ACTIVE_DELAY][0]
-                        eTree[TREE_ACTIVE_DELAY][1]         = g_eSettings[SETTING_DEFAULT_ACTIVE_DELAY][1]
-                        eTree[TREE_ACTIVE_DURATION][0]      = g_eSettings[SETTING_DEFAULT_ACTIVE_DURATION][0]
-                        eTree[TREE_ACTIVE_DURATION][1]      = g_eSettings[SETTING_DEFAULT_ACTIVE_DURATION][1]
-                        eTree[TREE_ACTIVE_COOLDOWN][0]      = g_eSettings[SETTING_DEFAULT_ACTIVE_COOLDOWN][0]
-                        eTree[TREE_ACTIVE_COOLDOWN][1]      = g_eSettings[SETTING_DEFAULT_ACTIVE_COOLDOWN][1]
                         eTree[TREE_DAMAGE][0]               = g_eSettings[SETTING_DEFAULT_DAMAGE][0]
                         eTree[TREE_DAMAGE][1]               = g_eSettings[SETTING_DEFAULT_DAMAGE][1]
                         eTree[TREE_DAMAGETYPE]              = g_eSettings[SETTING_DEFAULT_DAMAGETYPE]
@@ -530,14 +489,6 @@ ReadFile()
                             parseSetting(DTYPE_INT, szValue, charsmax(szValue), g_eSettings[SETTING_DEFAULT_TEAM], charsmax(g_eSettings[SETTING_DEFAULT_TEAM]))
                         else if ( equali(szKey, "SETTING_DEFAULT_FRAMERATE") )
                             parseSetting(DTYPE_FLOAT, szValue, charsmax(szValue), g_eSettings[SETTING_DEFAULT_FRAMERATE], charsmax(g_eSettings[SETTING_DEFAULT_FRAMERATE]))
-                        else if ( equali(szKey, "SETTING_DEFAULT_SPAWN_CHANCE") )
-                            parseSetting(DTYPE_FLOAT, szValue, charsmax(szValue), g_eSettings[SETTING_DEFAULT_SPAWN_CHANCE], charsmax(g_eSettings[SETTING_DEFAULT_SPAWN_CHANCE]))
-                        else if ( equali(szKey, "SETTING_DEFAULT_ACTIVE_DELAY") )
-                            parseSetting(DTYPE_FLOAT, szValue, charsmax(szValue), g_eSettings[SETTING_DEFAULT_ACTIVE_DELAY], charsmax(g_eSettings[SETTING_DEFAULT_ACTIVE_DELAY]))
-                        else if ( equali(szKey, "SETTING_DEFAULT_ACTIVE_DURATION") )
-                            parseSetting(DTYPE_FLOAT, szValue, charsmax(szValue), g_eSettings[SETTING_DEFAULT_ACTIVE_DURATION], charsmax(g_eSettings[SETTING_DEFAULT_ACTIVE_DURATION]))
-                        else if ( equali(szKey, "SETTING_DEFAULT_ACTIVE_COOLDOWN") )
-                            parseSetting(DTYPE_FLOAT, szValue, charsmax(szValue), g_eSettings[SETTING_DEFAULT_ACTIVE_COOLDOWN], charsmax(g_eSettings[SETTING_DEFAULT_ACTIVE_COOLDOWN]))
                         else if ( equali(szKey, "SETTING_DEFAULT_DAMAGE") )
                             parseSetting(DTYPE_FLOAT, szValue, charsmax(szValue), g_eSettings[SETTING_DEFAULT_DAMAGE], charsmax(g_eSettings[SETTING_DEFAULT_DAMAGE]))
                         else if ( equali(szKey, "SETTING_DEFAULT_DAMAGETYPE") )
@@ -567,13 +518,13 @@ ReadFile()
                         else if ( equali(szKey, "SETTING_TRIGGER_MAXS_LARGE") )
                             parseSetting(DTYPE_FLOAT, szValue, charsmax(szValue), g_eSettings[SETTING_TRIGGER_MAXS_LARGE], charsmax(g_eSettings[SETTING_TRIGGER_MAXS_LARGE]))
                         else if ( equali(szKey, "SETTING_SHOW_BLOOD") )
-                            parseSetting(DTYPE_BOOL, szValue, charsmax(szValue), g_eSettings[SETTING_SHOW_BLOOD], charsmax(g_eSettings[SETTING_SHOW_BLOOD]))
+                            parseSetting(DTYPE_INT, szValue, charsmax(szValue), g_eSettings[SETTING_SHOW_BLOOD], charsmax(g_eSettings[SETTING_SHOW_BLOOD]))
                         else if ( equali(szKey, "SETTING_BLOOD_COLOR") )
                             parseSetting(DTYPE_INT, szValue, charsmax(szValue), g_eSettings[SETTING_BLOOD_COLOR], charsmax(g_eSettings[SETTING_BLOOD_COLOR]))
                         else if ( equali(szKey, "SETTING_PUNCH_ANGLE") )
                             parseSetting(DTYPE_FLOAT, szValue, charsmax(szValue), g_eSettings[SETTING_PUNCH_ANGLE], charsmax(g_eSettings[SETTING_PUNCH_ANGLE]))
                         else if ( equali(szKey, "SETTING_TREE_LOAD") )
-                            parseSetting(DTYPE_BOOL, szValue, charsmax(szValue), g_eSettings[SETTING_TREE_LOAD], charsmax(g_eSettings[SETTING_TREE_LOAD]))
+                            parseSetting(DTYPE_INT, szValue, charsmax(szValue), g_eSettings[SETTING_TREE_LOAD], charsmax(g_eSettings[SETTING_TREE_LOAD]))
                         else if ( equali(szKey, "SETTING_TREE_CHECK") )
                             parseSetting(DTYPE_FLOAT, szValue, charsmax(szValue), g_eSettings[SETTING_TREE_CHECK], charsmax(g_eSettings[SETTING_TREE_CHECK]))
                         else if ( equali(szKey, "SETTING_TREE_TASK") )
@@ -617,14 +568,6 @@ ReadFile()
                             parseSetting(DTYPE_INT, szValue, charsmax(szValue), eTree[TREE_TEAM], charsmax(eTree[TREE_TEAM]))
                         else if ( equali(szKey, "TREE_FRAMERATE") )
                             parseSetting(DTYPE_FLOAT, szValue, charsmax(szValue), eTree[TREE_FRAMERATE], charsmax(eTree[TREE_FRAMERATE]))
-                        else if ( equali(szKey, "TREE_SPAWN_CHANCE") )
-                            parseSetting(DTYPE_FLOAT, szValue, charsmax(szValue), eTree[TREE_SPAWN_CHANCE], charsmax(eTree[TREE_SPAWN_CHANCE]))
-                        else if ( equali(szKey, "TREE_ACTIVE_DELAY") )
-                            parseSetting(DTYPE_FLOAT, szValue, charsmax(szValue), eTree[TREE_ACTIVE_DELAY], charsmax(eTree[TREE_ACTIVE_DELAY]))
-                        else if ( equali(szKey, "TREE_ACTIVE_DURATION") )
-                            parseSetting(DTYPE_FLOAT, szValue, charsmax(szValue), eTree[TREE_ACTIVE_DURATION], charsmax(eTree[TREE_ACTIVE_DURATION]))
-                        else if ( equali(szKey, "TREE_ACTIVE_COOLDOWN") )
-                            parseSetting(DTYPE_FLOAT, szValue, charsmax(szValue), eTree[TREE_ACTIVE_COOLDOWN], charsmax(eTree[TREE_ACTIVE_COOLDOWN]))
                         else if ( equali(szKey, "TREE_DAMAGE") )
                             parseSetting(DTYPE_FLOAT, szValue, charsmax(szValue), eTree[TREE_DAMAGE], charsmax(eTree[TREE_DAMAGE]))
                         else if ( equali(szKey, "TREE_DAMAGETYPE") )
@@ -641,6 +584,12 @@ ReadFile()
         ArrayPushArray(g_aTreeConfig, eTree)
     else
         set_fail_state("No trees were found in the configuration file.")
+
+    if ( g_bFileWasRead )
+    {
+        DisableTree()
+        EnableTree()
+    }
 
     g_bFileWasRead = true
     fclose(iFile)
@@ -1329,13 +1278,13 @@ public menuHandlerRotate(id, menu, item)
         {
             treeTrace(eTree, id)
             DisableAction(id)
+            set_pdata_float(id, PDATA_NEXT_ATTACK, 0.0, XO_CBASEPLAYER, XO_CBASEPLAYER)
             g_ePlayerData[id][PDATA_TREE_GHOST] = 0
 
             eTree[TREE_FLAGS] &= ~FLAG_GHOST
             eTree[TREE_FLAGS] |= (FLAG_SHOW | FLAG_ACTIVE)
             eTree[TREE_ANGLES][0] = -eTree[TREE_ANGLES][0]
             treeSetSize(eTree)
-            treeSetDelay(eTree)
             treeSetState(eTree)
             client_print_color(id, id, "%L %L", id, "TREE_CHAT_TAG", id, "TREE_CHAT_CREATE_NEW", eTree[TREE_NAME])
 
@@ -1348,6 +1297,7 @@ public menuHandlerRotate(id, menu, item)
             treeKill(eTree)
             treeRemove(iItem)
             DisableAction(id)
+            set_pdata_float(id, PDATA_NEXT_ATTACK, 0.0, XO_CBASEPLAYER, XO_CBASEPLAYER)
             g_ePlayerData[id][PDATA_TREE_GHOST] = 0
 
             treeSound(id, SOUND_MENU_NAV)
@@ -1358,6 +1308,7 @@ public menuHandlerRotate(id, menu, item)
             treeKill(eTree)
             treeRemove(iItem)
             DisableAction(id)
+            set_pdata_float(id, PDATA_NEXT_ATTACK, 0.0, XO_CBASEPLAYER, XO_CBASEPLAYER)
             g_ePlayerData[id][PDATA_TREE_GHOST] = 0
         }
     }
@@ -1397,33 +1348,6 @@ public treeTask()
 
                     bModified = true
                 }
-
-                if ( eTree[TREE_NEXT_DISABLE] > 0.0
-                && fCurrentTime >= eTree[TREE_NEXT_DISABLE] )
-                {
-                    eTree[TREE_FLAGS] &= ~FLAG_ACTIVE
-                    eTree[TREE_FLAGS] |= FLAG_PENDING
-                    eTree[TREE_NEXT_DISABLE] = 0.0
-                    eTree[TREE_NEXT_ENABLE] = fCurrentTime + random_float(eTree[TREE_ACTIVE_COOLDOWN][0], eTree[TREE_ACTIVE_COOLDOWN][1])
-
-                    treeSetState(eTree)
-                    bModified = true
-                }
-            }
-            else
-            {
-                if ( eTree[TREE_NEXT_ENABLE] > 0.0
-                && fCurrentTime >= eTree[TREE_NEXT_ENABLE] )
-                {
-                    eTree[TREE_FLAGS] |= FLAG_ACTIVE
-                    eTree[TREE_FLAGS] &= ~FLAG_PENDING
-                    eTree[TREE_NEXT_ENABLE] = 0.0
-                    if ( eTree[TREE_FLAGS] & FLAG_ACTIVE_DURATION )
-                        eTree[TREE_NEXT_DISABLE] = fCurrentTime + random_float(eTree[TREE_ACTIVE_DURATION][0], eTree[TREE_ACTIVE_DURATION][1])
-
-                    treeSetState(eTree)
-                    bModified = true
-                }
             }
         }
 
@@ -1456,7 +1380,10 @@ stock treeCreate(id, iItem)
     set_pev(iEnt, pev_classname, g_szCN)
     set_pev(iEnt, pev_impulse, TREE_KEY)
     set_pev(iEnt, TREE_ARRAY_ITEM, g_iTree)
+
     dllfunc(DLLFunc_Spawn, iEnt)
+    set_pev(iEnt, pev_solid, SOLID_NOT)
+    set_pev(iEnt, pev_movetype, MOVETYPE_FLY)
 
     switch( eTree[TREE_SIZE] )
     {
@@ -1658,7 +1585,6 @@ stock LoadDataTree(iItem, iFlags, iSize, Float:fOrigin[3], Float:fAngles[3], iCo
 
     treeSetBox(eTree)
     treeSetSize(eTree)
-    treeSetDelay(eTree)
     treeSetState(eTree)
     ArraySetArray(g_aTree, iCount, eTree)
 }
@@ -1677,28 +1603,6 @@ public treeGodMode(id)
 
     treeSound(id, SOUND_MENU_NAV)
     treeMenu(id, MENU_ROOT)
-}
-
-public fwdUpdateClientData(id, iSendWeapons, iHandle)
-{
-    if ( g_ePlayerData[id][PDATA_TREE_GHOST] )
-    {
-        set_cd(iHandle, CD_WeaponAnim, 0)
-        set_cd(iHandle, CD_flNextAttack, get_gametime() + 0.1)
-    }
-
-    return FMRES_IGNORED
-}
-
-public fwdSpawn(iEnt)
-{
-    if ( !isTree(iEnt) )
-        return HAM_IGNORED
-
-    set_pev(iEnt, pev_solid, SOLID_NOT)
-    set_pev(iEnt, pev_movetype, MOVETYPE_FLY)
-
-    return HAM_IGNORED
 }
 
 public fwdTouch(iEnt, iOther)
@@ -1777,6 +1681,7 @@ public fwdPreThink(id)
                 }
             }
 
+            set_pdata_float(id, PDATA_NEXT_ATTACK, fCurrentTime + 0.1, XO_CBASEPLAYER, XO_CBASEPLAYER)
             iButton &= ~(IN_ATTACK | IN_ATTACK2)
             set_pev(id, pev_button, iButton)
 
@@ -2034,28 +1939,6 @@ stock treeSetSize(eTree[TREE])
     treeCreateTrigger(eTree)
 }
 
-stock treeSetDelay(eTree[TREE])
-{
-    if ( eTree[TREE_FLAGS] & FLAG_ACTIVE )
-    {
-        new Float:fCurrentTime
-        fCurrentTime = get_gametime()
-
-        if ( eTree[TREE_FLAGS] & FLAG_ACTIVE_DELAY )
-        {
-            eTree[TREE_FLAGS] &= ~FLAG_ACTIVE
-            eTree[TREE_NEXT_ENABLE] = fCurrentTime + random_float(eTree[TREE_ACTIVE_DELAY][0], eTree[TREE_ACTIVE_DELAY][1])
-
-            treeSetState(eTree)
-        }
-        else
-        {
-            if ( eTree[TREE_FLAGS] & FLAG_ACTIVE_DURATION )
-                eTree[TREE_NEXT_DISABLE] = fCurrentTime + random_float(eTree[TREE_ACTIVE_DURATION][0], eTree[TREE_ACTIVE_DURATION][1])
-        }
-    }
-}
-
 stock treeSetState(eTree[TREE])
 {
     eTree[TREE_NEXT_IDLE] = 0.0
@@ -2108,6 +1991,18 @@ stock treeSelect(eTree[TREE], iAction)
     set_ent_rendering(eTree[TREE_ID], iRenderFx, iRenderColor[0], iRenderColor[1], iRenderColor[2], iRender, iRenderAmt)
 }
 
+stock treeReset()
+{
+    new eTree[TREE]
+    for ( new i = 0; i < g_iTree; i ++ )
+    {
+        ArrayGetArray(g_aTree, i, eTree)
+        eTree[TREE_NEXT_IDLE] = 0.0
+        eTree[TREE_NEXT_ATTACK] = 0.0
+        ArraySetArray(g_aTree, i, eTree)
+    }
+}
+
 stock treeSound(iEnt, iSound, bool:bPlayer = true)
 {
     new szSample[64]
@@ -2124,17 +2019,6 @@ stock treeSound(iEnt, iSound, bool:bPlayer = true)
         engfunc(EngFunc_EmitSound, iEnt, CHAN_ITEM, szSample, VOL_NORM, ATTN_NORM, 0, PITCH_NORM)
 }
 
-stock treeReset(eTree[TREE])
-{
-    eTree[TREE_FLAGS] &= ~(FLAG_SHOW | FLAG_ACTIVE)
-    eTree[TREE_NEXT_ENABLE] = 0.0
-    eTree[TREE_NEXT_DISABLE] = 0.0
-    eTree[TREE_NEXT_IDLE] = 0.0
-    eTree[TREE_NEXT_ATTACK] = 0.0
-
-    treeSetState(eTree)
-}
-
 stock treeGet(eTree[TREE], iEnt)
 {
     new iItem
@@ -2148,7 +2032,7 @@ stock treeGet(eTree[TREE], iEnt)
 
 stock bool:isTree(iEnt)
 {
-    return pev(iEnt, pev_impulse) == TREE_KEY
+    return pev_valid(iEnt) && pev(iEnt, pev_impulse) == TREE_KEY
 }
 
 stock treeKill(eTree[TREE])
@@ -2193,10 +2077,6 @@ stock parseSetting(iType, szValue[], iValueLen, any:aOutput[], iOutputLength)
                 strtok(szTmp, szTok, charsmax(szTok), szTmp, charsmax(szTmp), ' ')
                 trim(szTok)
             }
-        }
-        case DTYPE_BOOL:
-        {
-            aOutput[0] = bool:str_to_num(szValue)
         }
         case DTYPE_FLAGS:
         {
@@ -2273,16 +2153,12 @@ stock DisableAction(id)
 
 stock EnableForward()
 {
-    g_iFwdUpdateClientData = register_forward(FM_UpdateClientData, "fwdUpdateClientData", 1)
-    EnableHamForward(g_iFwdSpawn)
     EnableHamForward(g_iFwdPreThink)
     EnableHamForward(g_iFwdKilled)
 }
 
 stock DisableForward()
 {
-    unregister_forward(FM_UpdateClientData, g_iFwdUpdateClientData, 1)
-    DisableHamForward(g_iFwdSpawn)
     DisableHamForward(g_iFwdPreThink)
     DisableHamForward(g_iFwdKilled)
 }
