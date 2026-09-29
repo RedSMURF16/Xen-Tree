@@ -2021,6 +2021,9 @@ stock treeSound(iEnt, iSound, bool:bPlayer = true)
 
 stock treeGet(eTree[TREE], iEnt)
 {
+    if ( !isTree(iEnt) )
+        return -1
+
     new iItem
     iItem = pev(iEnt, TREE_ARRAY_ITEM)
     if ( iItem < 0 || iItem >= g_iTree )
