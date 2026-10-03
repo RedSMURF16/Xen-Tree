@@ -1687,10 +1687,10 @@ public fwdPreThink(id)
 
             treeTrace(eTree, id)
         }
-        else if ( g_ePlayerData[id][PDATA_TREE_ACTION] )
-        {
-            treeCheck(id)
-        }
+    }
+    else if ( g_ePlayerData[id][PDATA_TREE_ACTION] )
+    {
+        treeCheck(id)
     }
 
     return HAM_IGNORED
