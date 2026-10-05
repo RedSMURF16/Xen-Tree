@@ -1007,6 +1007,8 @@ public menuHandlerShow(id, menu, item)
         case SHOW_CURRENT:
         {
             eTree[TREE_FLAGS] ^= FLAG_SHOW
+            if ( !(eTree[TREE_FLAGS] & FLAG_SHOW) )
+                eTree[TREE_FLAGS] &= ~FLAG_ACTIVE
             treeSetState(eTree)
 
             client_print_color(id, id, "%L %L", id, "TREE_CHAT_TAG", id, "TREE_CHAT_SHOW_CURRENT",
@@ -1037,6 +1039,7 @@ public menuHandlerShow(id, menu, item)
             {
                 ArrayGetArray(g_aTree, i, eTree)
                 eTree[TREE_FLAGS] &= ~FLAG_SHOW
+                eTree[TREE_FLAGS] &= ~FLAG_ACTIVE
                 treeSetState(eTree)
 
                 ArraySetArray(g_aTree, i, eTree)
@@ -1329,25 +1332,22 @@ public treeTask()
 
         if ( eTree[TREE_FLAGS] & FLAG_SHOW )
         {
-            if ( eTree[TREE_FLAGS] & FLAG_ACTIVE )
+            if ( eTree[TREE_NEXT_IDLE] > 0.0
+            && fCurrentTime >= eTree[TREE_NEXT_IDLE] )
             {
-                if ( eTree[TREE_NEXT_IDLE] > 0.0
-                && fCurrentTime >= eTree[TREE_NEXT_IDLE] )
-                {
-                    eTree[TREE_NEXT_IDLE] = 0.0
-                    treeSetSeq(eTree[TREE_ID], eTree[TREE_FRAMERATE], TREE_SEQ_IDLE)
+                eTree[TREE_NEXT_IDLE] = 0.0
+                treeSetSeq(eTree[TREE_ID], eTree[TREE_FRAMERATE], TREE_SEQ_IDLE)
 
-                    bModified = true
-                }
+                bModified = true
+            }
 
-                if ( eTree[TREE_NEXT_ATTACK] > 0.0
-                && fCurrentTime >= eTree[TREE_NEXT_ATTACK] )
-                {
-                    eTree[TREE_NEXT_ATTACK] = 0.0
-                    treeAttack(eTree)
+            if ( eTree[TREE_NEXT_ATTACK] > 0.0
+            && fCurrentTime >= eTree[TREE_NEXT_ATTACK] )
+            {
+                eTree[TREE_NEXT_ATTACK] = 0.0
+                treeAttack(eTree)
 
-                    bModified = true
-                }
+                bModified = true
             }
         }
 
