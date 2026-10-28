@@ -48,6 +48,13 @@
 #endif
 
 #define MAX_ENT                     32
+#define TREE_CHECK                  10.0
+#define TREE_OFFSET_BASE            120.0
+#define TREE_OFFSET_MIN             65.0
+#define TREE_OFFSET_MAX             900.0
+#define TREE_OFFSET_STEP            10.0
+#define TREE_GHOST_ALPHA            120
+#define TREE_ROTATION_STEP          22.5
 #define ADMIN_ACCESS                ADMIN_RCON
 #define PDATA_NEXT_ATTACK           83
 #define XO_CBASEPLAYER              5
@@ -95,9 +102,7 @@ enum
     FLAG_GHOST              = (1 << 2),
     FLAG_GROUND             = (1 << 3),
     FLAG_ACTIVE             = (1 << 4),
-    FLAG_PENDING            = (1 << 5),
-    FLAG_SOUND_ATTACK       = (1 << 6),
-    FLAG_SOUND_SWING        = (1 << 7)
+    FLAG_PENDING            = (1 << 5)
 }
 
 enum
@@ -149,13 +154,7 @@ enum _:MAIN_SETTINGS
     Float:SETTING_PUNCH_ANGLE[2],
 
     bool:SETTING_TREE_LOAD,
-    Float:SETTING_TREE_CHECK,
     Float:SETTING_TREE_TASK,
-    Float:SETTING_OFFSET_BASE,
-    Float:SETTING_OFFSET[2],
-    Float:SETTING_OFFSET_STEP,
-    SETTING_GHOST_ALPHA,
-    Float:SETTING_ROTATION_STEP
 }
 
 enum _:TREE
@@ -178,8 +177,6 @@ enum _:TREE
     Float:TREE_TRIGGER_ORIGIN[3],
     Float:TREE_TRIGGER_MINS[3],
     Float:TREE_TRIGGER_MAXS[3],
-    Array:TREE_SOUND_ATTACK,
-    Array:TREE_SOUND_SWING,
 
     Float:TREE_DAMAGE[2],
     TREE_DAMAGETYPE,
@@ -441,8 +438,6 @@ ReadFile()
                         eTree[TREE_DAMAGETYPE]              = g_eSettings[SETTING_DEFAULT_DAMAGETYPE]
                         eTree[TREE_PUSH][0]                 = g_eSettings[SETTING_DEFAULT_PUSH][0]
                         eTree[TREE_PUSH][1]                 = g_eSettings[SETTING_DEFAULT_PUSH][1]
-                        eTree[TREE_SOUND_SWING]             = ArrayClone(g_eSettings[SETTING_DEFAULT_SOUND_SWING])
-                        eTree[TREE_SOUND_ATTACK]            = ArrayClone(g_eSettings[SETTING_DEFAULT_SOUND_ATTACK])
 
                         iSection = SECTION_TREE
                         g_iTreeConfig ++
@@ -518,44 +513,12 @@ ReadFile()
                             parseSetting(DTYPE_FLOAT, szValue, charsmax(szValue), g_eSettings[SETTING_PUNCH_ANGLE], charsmax(g_eSettings[SETTING_PUNCH_ANGLE]))
                         else if ( equali(szKey, "SETTING_TREE_LOAD") )
                             parseSetting(DTYPE_INT, szValue, charsmax(szValue), g_eSettings[SETTING_TREE_LOAD], charsmax(g_eSettings[SETTING_TREE_LOAD]))
-                        else if ( equali(szKey, "SETTING_TREE_CHECK") )
-                            parseSetting(DTYPE_FLOAT, szValue, charsmax(szValue), g_eSettings[SETTING_TREE_CHECK], charsmax(g_eSettings[SETTING_TREE_CHECK]))
                         else if ( equali(szKey, "SETTING_TREE_TASK") )
                             parseSetting(DTYPE_FLOAT, szValue, charsmax(szValue), g_eSettings[SETTING_TREE_TASK], charsmax(g_eSettings[SETTING_TREE_TASK]))
-                        else if ( equali(szKey, "SETTING_OFFSET_BASE") )
-                            parseSetting(DTYPE_FLOAT, szValue, charsmax(szValue), g_eSettings[SETTING_OFFSET_BASE], charsmax(g_eSettings[SETTING_OFFSET_BASE]))
-                        else if ( equali(szKey, "SETTING_OFFSET") )
-                            parseSetting(DTYPE_FLOAT, szValue, charsmax(szValue), g_eSettings[SETTING_OFFSET], charsmax(g_eSettings[SETTING_OFFSET]))
-                        else if ( equali(szKey, "SETTING_OFFSET_STEP") )
-                            parseSetting(DTYPE_FLOAT, szValue, charsmax(szValue), g_eSettings[SETTING_OFFSET_STEP], charsmax(g_eSettings[SETTING_OFFSET_STEP]))
-                        else if ( equali(szKey, "SETTING_GHOST_ALPHA") )
-                            parseSetting(DTYPE_INT, szValue, charsmax(szValue), g_eSettings[SETTING_GHOST_ALPHA], charsmax(g_eSettings[SETTING_GHOST_ALPHA]))
-                        else if ( equali(szKey, "SETTING_ROTATION_STEP") )
-                            parseSetting(DTYPE_FLOAT, szValue, charsmax(szValue), g_eSettings[SETTING_ROTATION_STEP], charsmax(g_eSettings[SETTING_ROTATION_STEP]))
                     }
                     case SECTION_TREE:
                     {
-                        if ( equali(szKey, "TREE_SOUND_ATTACK") )
-                        {
-                            if ( !(eTree[TREE_FLAGS] & FLAG_SOUND_ATTACK) )
-                            {
-                                ArrayClear(eTree[TREE_SOUND_ATTACK])
-                                eTree[TREE_FLAGS] |= FLAG_SOUND_ATTACK
-                            }
-
-                            parseSetting(DTYPE_ARRAY_SOUND, szValue, charsmax(szValue), eTree[TREE_SOUND_ATTACK], charsmax(eTree[TREE_SOUND_ATTACK]))
-                        }
-                        else if ( equali(szKey, "TREE_SOUND_SWING") )
-                        {
-                            if ( !(eTree[TREE_FLAGS] & FLAG_SOUND_SWING) )
-                            {
-                                ArrayClear(eTree[TREE_SOUND_SWING])
-                                eTree[TREE_FLAGS] |= FLAG_SOUND_SWING
-                            }
-
-                            parseSetting(DTYPE_ARRAY_SOUND, szValue, charsmax(szValue), eTree[TREE_SOUND_SWING], charsmax(eTree[TREE_SOUND_SWING]))
-                        }
-                        else if ( equali(szKey, "TREE_FLAGS") )
+                        if ( equali(szKey, "TREE_FLAGS") )
                             parseSetting(DTYPE_FLAGS, szValue, charsmax(szValue), eTree[TREE_FLAGS], charsmax(eTree[TREE_FLAGS]))
                         else if ( equali(szKey, "TREE_TEAM") )
                             parseSetting(DTYPE_INT, szValue, charsmax(szValue), eTree[TREE_TEAM], charsmax(eTree[TREE_TEAM]))
@@ -1215,7 +1178,7 @@ public menuHandlerRotate(id, menu, item)
         case ROTATE_UP:
         {
             pev(eTree[TREE_ID], pev_angles, eTree[TREE_ANGLES])
-            eTree[TREE_ANGLES][1] -= g_eSettings[SETTING_ROTATION_STEP]
+            eTree[TREE_ANGLES][1] -= TREE_ROTATION_STEP
             if ( eTree[TREE_ANGLES][1] < -180.0 ) eTree[TREE_ANGLES][1] += 360.0
 
             set_pev(eTree[TREE_ID], pev_angles, eTree[TREE_ANGLES])
@@ -1227,7 +1190,7 @@ public menuHandlerRotate(id, menu, item)
         case ROTATE_DOWN:
         {
             pev(eTree[TREE_ID], pev_angles, eTree[TREE_ANGLES])
-            eTree[TREE_ANGLES][1] += g_eSettings[SETTING_ROTATION_STEP]
+            eTree[TREE_ANGLES][1] += TREE_ROTATION_STEP
             if ( eTree[TREE_ANGLES][1] > 180.0 ) eTree[TREE_ANGLES][1] -= 360.0
 
             set_pev(eTree[TREE_ID], pev_angles, eTree[TREE_ANGLES])
@@ -1353,7 +1316,7 @@ stock treeCreate(id, iItem)
     {
         EnableAction(id)
         g_ePlayerData[id][PDATA_TREE_GHOST] = eTree[TREE_ID]
-        g_ePlayerData[id][PDATA_OFFSET] = g_eSettings[SETTING_OFFSET_BASE]
+        g_ePlayerData[id][PDATA_OFFSET] = TREE_OFFSET_BASE
 
         eTree[TREE_SIZE] = g_ePlayerData[id][PDATA_ROTATE_SIZE]
         eTree[TREE_FLAGS] |= FLAG_GHOST
@@ -1652,14 +1615,14 @@ public fwdPreThink(id)
             {
                 if ( iButton & IN_ATTACK )
                 {
-                    g_ePlayerData[id][PDATA_OFFSET]      += g_eSettings[SETTING_OFFSET_STEP]
-                    g_ePlayerData[id][PDATA_OFFSET]      = floatclamp(g_ePlayerData[id][PDATA_OFFSET], g_eSettings[SETTING_OFFSET][0], g_eSettings[SETTING_OFFSET][1])
+                    g_ePlayerData[id][PDATA_OFFSET]      += TREE_OFFSET_STEP
+                    g_ePlayerData[id][PDATA_OFFSET]      = floatclamp(g_ePlayerData[id][PDATA_OFFSET], TREE_OFFSET_MIN, TREE_OFFSET_MAX)
                     g_ePlayerData[id][PDATA_NEXT_OFFSET] = fCurrentTime + 0.1
                 }
                 else if ( iButton & IN_ATTACK2 )
                 {
-                    g_ePlayerData[id][PDATA_OFFSET]      -= g_eSettings[SETTING_OFFSET_STEP]
-                    g_ePlayerData[id][PDATA_OFFSET]      = floatclamp(g_ePlayerData[id][PDATA_OFFSET], g_eSettings[SETTING_OFFSET][0], g_eSettings[SETTING_OFFSET][1])
+                    g_ePlayerData[id][PDATA_OFFSET]      -= TREE_OFFSET_STEP
+                    g_ePlayerData[id][PDATA_OFFSET]      = floatclamp(g_ePlayerData[id][PDATA_OFFSET], TREE_OFFSET_MIN, TREE_OFFSET_MAX)
                     g_ePlayerData[id][PDATA_NEXT_OFFSET] = fCurrentTime + 0.1
                 }
             }
@@ -1729,7 +1692,7 @@ stock treeCheck(id)
     global_get(glb_v_forward, fVec2)
 
     iBest = -1
-    fBestDist = g_eSettings[SETTING_TREE_CHECK]
+    fBestDist = TREE_CHECK
     for ( new i = 0; i < g_iTree; i ++ )
     {
         ArrayGetArray(g_aTree, i, eTree)
@@ -1770,7 +1733,7 @@ stock treeCheck(id)
 stock treeSwing(eTree[TREE])
 {
     new szSound[MAX_RESOURCE_PATH_LENGTH]
-    ArrayGetString(eTree[TREE_SOUND_SWING], random(ArraySize(eTree[TREE_SOUND_SWING])), szSound, charsmax(szSound))
+    ArrayGetString(g_eSettings[SETTING_DEFAULT_SOUND_SWING], random(ArraySize(g_eSettings[SETTING_DEFAULT_SOUND_SWING])), szSound, charsmax(szSound))
     engfunc(EngFunc_EmitSound, eTree[TREE_ID], CHAN_ITEM, szSound, VOL_NORM, ATTN_NORM, 0, PITCH_NORM)
 
     treeSetSeq(eTree[TREE_ID], eTree[TREE_FRAMERATE], TREE_SEQ_ATTACK)
@@ -1802,7 +1765,7 @@ stock treeAttack(eTree[TREE])
                 fVec2[0] = random_float(g_eSettings[SETTING_PUNCH_ANGLE][0], g_eSettings[SETTING_PUNCH_ANGLE][1])
                 set_pev(iEnt, pev_punchangle, fVec2)
 
-                ArrayGetString(eTree[TREE_SOUND_ATTACK], random(ArraySize(eTree[TREE_SOUND_ATTACK])), szSound, charsmax(szSound))
+                ArrayGetString(g_eSettings[SETTING_DEFAULT_SOUND_ATTACK], random(ArraySize(g_eSettings[SETTING_DEFAULT_SOUND_ATTACK])), szSound, charsmax(szSound))
                 engfunc(EngFunc_EmitSound, iEnt, CHAN_ITEM, szSound, VOL_NORM, ATTN_NORM, 0, PITCH_NORM)
 
                 pev(iEnt, pev_velocity, fVec1)
@@ -1958,7 +1921,7 @@ stock treeSelect(eTree[TREE], iAction)
     else if ( iAction == TARGET_GHOST )
     {
         iRender = kRenderTransAlpha
-        iRenderAmt = g_eSettings[SETTING_GHOST_ALPHA]
+        iRenderAmt = TREE_GHOST_ALPHA
     }
     else if ( iAction == TARGET_HIDE )
     {
@@ -2172,3 +2135,8 @@ stock LogConfigError(const iLine, const szText[], any:...)
 
     log_to_file(ERROR_FILE, "^nLine %d: %s", iLine, szError)
 }
+
+
+
+
+
