@@ -20,7 +20,6 @@
 
 #include <amxmodx>
 #include <amxmisc>
-#include <cstrike>
 #include <fakemeta>
 #include <hamsandwich>
 #include <xs>
@@ -1301,7 +1300,7 @@ public treeTask()
 
 stock treeCreate(id, iItem)
 {
-    new iEnt = cs_create_entity("info_target")
+    new iEnt = engfunc(EngFunc_CreateNamedEntity, engfunc(EngFunc_AllocString, "info_target"))
     if ( !pev_valid(iEnt) )
         return
 
@@ -1344,7 +1343,7 @@ stock treeCreate(id, iItem)
 
 stock treeCreateTrigger(eTree[TREE])
 {
-    new iEnt = cs_create_entity("info_target")
+    new iEnt = engfunc(EngFunc_CreateNamedEntity, engfunc(EngFunc_AllocString, "info_target"))
     if ( !pev_valid(iEnt) )
         return
 
@@ -1561,7 +1560,7 @@ public fwdTouch(iEnt, iOther)
     || !(eTree[TREE_FLAGS] & FLAG_ACTIVE)
     || get_gametime() < eTree[TREE_NEXT_IDLE]
     || (iEnt != iTree && !is_user_alive(iOther))
-    || (is_user_alive(iOther) && !(CsTeams:eTree[TREE_TEAM] & cs_get_user_team(iOther))) )
+    || (is_user_alive(iOther) && !(eTree[TREE_TEAM] & get_user_team(iOther))) )
         return HAM_IGNORED
 
     treeSwing(eTree)
