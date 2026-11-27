@@ -1,7 +1,7 @@
 <h1 align="center">Xen Tree</h1>
 
 <p align="center">
-  <a href="https://www.youtube.com/watch?v=jvHx_RQNcMo"><img src="https://img.youtube.com/vi/jvHx_RQNcMo/maxresdefault.jpg" alt="Watch on YouTube" width="600"></a>
+  <img src="images/demo.gif" alt="Xen Tree">
 </p>
 
 ## 📝 Description
